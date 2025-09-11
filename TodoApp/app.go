@@ -2,26 +2,35 @@ package main
 
 import (
 	"context"
-	"fmt"
 )
 
-// App struct
 type App struct {
-	ctx context.Context
+	ctx  context.Context
+	repo *TaskRepo
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		repo: NewTaskRepo("tasks.json"),
+	}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+func (a *App) GetTasks() []Task {
+	return a.repo.GetTasks()
+}
+
+func (a *App) AddTask(title string) Task {
+	return a.repo.AddTask(title)
+}
+
+func (a *App) ToggleTask(id string) (Task, error) {
+	return a.repo.ToggleTask(id)
+}
+
+func (a *App) DeleteTask(id string) error {
+	return a.repo.DeleteTask(id)
 }
