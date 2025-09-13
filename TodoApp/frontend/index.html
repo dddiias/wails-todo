@@ -9,21 +9,42 @@
 </head>
 
 <body>
-    <div id="app">
-        <h1>To-Do List</h1>
-        <div class="task-input">
-            <input type="text" id="taskInput" placeholder="Введите задачу..." />
-            <button id="addBtn" type="button">Добавить</button>
-        </div>
-        <ul id="taskList"></ul>
-    </div>
+    <main class="page">
+        <section class="card app-card">
+            <header class="card__header">
+                <h1 class="title">ToDo List</h1>
+                <span class="title__icon">🗓️</span>
+            </header>
+
+            <div class="addform">
+                <input type="text" id="taskInput" class="input" placeholder="Add your task" />
+                <input type="date" id="dueInput" class="input input--date" />
+                <select id="priorityInput" class="input input--select">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <button id="addBtn" type="button" class="btn btn--primary">
+                    <span class="btn__icon">＋</span>
+                </button>
+            </div>
+
+            <p id="hint" class="hint">Click a task to toggle done. Use Undo in “Completed”.</p>
+
+            <h2 class="section-title">Active</h2>
+            <ul id="taskListActive" class="list"></ul>
+
+            <h2 class="section-title">Completed</h2>
+            <ul id="taskListCompleted" class="list list--completed"></ul>
+        </section>
+    </main>
 
     <div id="modal" class="modal hidden">
         <div class="modal__card">
-            <p>Удалить задачу?</p>
+            <p class="modal__text">Удалить задачу?</p>
             <div class="modal__actions">
-                <button id="confirmYes" type="button">Удалить</button>
-                <button id="confirmNo" type="button">Отмена</button>
+                <button id="confirmYes" type="button" class="btn btn--danger">Удалить</button>
+                <button id="confirmNo" type="button" class="btn">Отмена</button>
             </div>
         </div>
     </div>
