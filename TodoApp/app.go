@@ -1,36 +1,25 @@
 package main
 
-import (
-	"context"
-)
-
 type App struct {
-	ctx  context.Context
 	repo *TaskRepo
 }
 
 func NewApp() *App {
-	return &App{
-		repo: NewTaskRepo("tasks.json"),
-	}
+	return &App{repo: NewTaskRepo("tasks.json")}
 }
 
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+func (a *App) AddTask(title, dueAtISO, priority string) TaskDTO {
+	return a.repo.AddTask(title, dueAtISO, priority)
 }
 
-func (a *App) GetTasks() []Task {
-	return a.repo.GetTasks()
+func (a *App) FilterTasks(status, order, dateF string) []TaskDTO {
+	return a.repo.FilterTasks(status, order, dateF)
 }
 
-func (a *App) AddTask(title string) Task {
-	return a.repo.AddTask(title)
-}
-
-func (a *App) ToggleTask(id string) (Task, error) {
+func (a *App) ToggleTask(id string) (TaskDTO, bool) {
 	return a.repo.ToggleTask(id)
 }
 
-func (a *App) DeleteTask(id string) error {
+func (a *App) DeleteTask(id string) bool {
 	return a.repo.DeleteTask(id)
 }

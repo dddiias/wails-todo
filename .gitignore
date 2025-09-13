@@ -1,0 +1,6 @@
+TodoApp/build/bin
+TodoApp/frontend/dist
+TodoApp/node_modules/
+TodoApp/frontend/node_modules/
+TodoApp/tasks.json
+TodoApp/frontend/wailsjs
