@@ -1,4 +1,3 @@
-// ===== DOM
 const titleInput = document.getElementById('titleInput');
 const prioSelect = document.getElementById('prioSelect');
 const dueInput = document.getElementById('dueInput');
@@ -7,11 +6,11 @@ const btnAdd = document.getElementById('btnAdd');
 const listActive = document.getElementById('listActive');
 const listCompleted = document.getElementById('listCompleted');
 
-const chips = Array.from(document.querySelectorAll('.filters .chip'));
+const chips = Array.from(document.querySelectorAll('.filters:not(.filters--date) .chip'));
+const dateChips = Array.from(document.querySelectorAll('.filters--date .chip'));
 const secActive = document.querySelector('.section-active');
 const secCompleted = document.querySelector('.section-completed');
 
-// Toolbar controls
 const searchInput = document.getElementById('searchInput');
 const sortActive = document.getElementById('sortActive');
 const sortCompleted = document.getElementById('sortCompleted');
@@ -22,6 +21,7 @@ const ui = {
     scopeActiveSort: 'newest',
     scopeDoneSort: 'newest',
     query: '',
+    dateScope: 'all',
 };
 
 const root = document.documentElement;
@@ -40,6 +40,13 @@ chips.forEach(ch => ch.addEventListener('click', () => {
     chips.forEach(c => c.classList.remove('is-active'));
     ch.classList.add('is-active');
     ui.view = ch.dataset.view;
+    renderAll();
+}));
+
+dateChips.forEach(ch => ch.addEventListener('click', () => {
+    dateChips.forEach(c => c.classList.remove('is-active'));
+    ch.classList.add('is-active');
+    ui.dateScope = ch.dataset.date;
     renderAll();
 }));
 
@@ -205,13 +212,13 @@ async function renderAll() {
     secCompleted.style.display = (ui.view === 'all' || ui.view === 'completed') ? '' : 'none';
 
     if (ui.view !== 'completed') {
-        const itemsA = await window.go.main.App.FilterTasks('active', ui.scopeActiveSort, 'all', ui.query);
+        const itemsA = await window.go.main.App.FilterTasks('active', ui.scopeActiveSort, 'all', ui.query, ui.dateScope);
         listActive.innerHTML = '';
         itemsA.forEach(t => listActive.appendChild(itemView(t, 'active')));
     }
 
     if (ui.view !== 'active') {
-        const itemsD = await window.go.main.App.FilterTasks('done', ui.scopeDoneSort, 'all', ui.query);
+        const itemsD = await window.go.main.App.FilterTasks('done', ui.scopeDoneSort, 'all', ui.query, ui.dateScope);
         listCompleted.innerHTML = '';
         itemsD.forEach(t => listCompleted.appendChild(itemView(t, 'done')));
     }

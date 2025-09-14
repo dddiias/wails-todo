@@ -260,3 +260,13 @@ li.overdue .badge--due {
         order: 2
     }
 }
+
+li.overdue .title {
+    color: var(--high);
+}
+
+.filters__label {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin-right: 8px;
+}

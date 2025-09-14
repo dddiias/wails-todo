@@ -24,12 +24,12 @@ func NewApp() *App {
 	}
 }
 
-func (a *App) FilterTasks(scope, sortBy, prio, q string) ([]Task, error) {
+func (a *App) FilterTasks(scope, sortBy, prio, q, dateScope string) ([]Task, error) {
 	items, err := a.store.load()
 	if err != nil {
 		return nil, err
 	}
-	res := filterSortSearch(items, scope, sortBy, prio, q)
+	res := filterSortSearch(items, scope, sortBy, prio, q, dateScope)
 	return res, nil
 }
 
