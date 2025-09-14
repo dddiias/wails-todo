@@ -2,6 +2,8 @@ import './style.css';
 import { AddTask, DeleteTask, ToggleTask, FilterTasks } from '../wailsjs/go/main/App';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    let currentFilter = 'all';
+    let sectionActive, sectionCompleted;
     const taskInput = document.getElementById('taskInput');
     const dueInput = document.getElementById('dueInput');
     const prioInput = document.getElementById('priorityInput');
@@ -17,6 +19,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     function closeConfirm() { modal.classList.add('hidden'); confirmCb = null; }
     confirmYes.addEventListener('click', () => { if (confirmCb) confirmCb(); });
     confirmNo.addEventListener('click', closeConfirm);
+
+    sectionActive = document.querySelector('.section-active');
+    sectionCompleted = document.querySelector('.section-completed');
+
+    const fltAll = document.getElementById('fltAll');
+    const fltActive = document.getElementById('fltActive');
+    const fltCompleted = document.getElementById('fltCompleted');
+
+    function applyFilter() {
+        const showA = (currentFilter === 'all' || currentFilter === 'active');
+        const showC = (currentFilter === 'all' || currentFilter === 'completed');
+
+        sectionActive.classList.toggle('hidden', !showA);
+        sectionCompleted.classList.toggle('hidden', !showC);
+
+        fltAll.classList.toggle('is-active', currentFilter === 'all');
+        fltActive.classList.toggle('is-active', currentFilter === 'active');
+        fltCompleted.classList.toggle('is-active', currentFilter === 'completed');
+    }
+
+    fltAll.addEventListener('click', () => { currentFilter = 'all'; applyFilter(); });
+    fltActive.addEventListener('click', () => { currentFilter = 'active'; applyFilter(); });
+    fltCompleted.addEventListener('click', () => { currentFilter = 'completed'; applyFilter(); });
+
 
     function renderItem(container, task, { allowToggle, showUndo }) {
         const li = document.createElement('li');
@@ -82,4 +108,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     taskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAdd(); });
 
     await renderAll();
+    applyFilter();
 });
