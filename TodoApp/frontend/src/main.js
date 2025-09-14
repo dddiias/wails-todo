@@ -1,231 +1,220 @@
-import './style.css';
-import { AddTask, DeleteTask, ToggleTask, FilterTasks, UpdateTask } from '../wailsjs/go/main/App';
+// ===== DOM
+const titleInput = document.getElementById('titleInput');
+const prioSelect = document.getElementById('prioSelect');
+const dueInput = document.getElementById('dueInput');
+const btnAdd = document.getElementById('btnAdd');
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const taskInput = document.getElementById('taskInput');
-    const dueInput = document.getElementById('dueInput');
-    const prioInput = document.getElementById('priorityInput');
-    const addBtn = document.getElementById('addBtn');
+const listActive = document.getElementById('listActive');
+const listCompleted = document.getElementById('listCompleted');
 
-    const listActive = document.getElementById('taskListActive');
-    const listCompleted = document.getElementById('taskListCompleted');
+const chips = Array.from(document.querySelectorAll('.filters .chip'));
+const secActive = document.querySelector('.section-active');
+const secCompleted = document.querySelector('.section-completed');
 
-    const btnAll = document.getElementById('fltAll');
-    const btnAct = document.getElementById('fltActive');
-    const btnDone = document.getElementById('fltCompleted');
-    const secAct = document.querySelector('.section-active');
-    const secDone = document.querySelector('.section-completed');
+// Toolbar controls
+const searchInput = document.getElementById('searchInput');
+const sortActive = document.getElementById('sortActive');
+const sortCompleted = document.getElementById('sortCompleted');
+const themeToggle = document.getElementById('themeToggle');
 
-    let ui = {
-        scopeActiveSort: 'newest',
-        scopeDoneSort: 'newest',
-        prioFilter: 'all',
-        query: '',
-        scopeView: 'all',
+const ui = {
+    view: 'all',
+    scopeActiveSort: 'newest',
+    scopeDoneSort: 'newest',
+    query: '',
+};
+
+const root = document.documentElement;
+const savedTheme = localStorage.getItem('theme') || 'light';
+root.classList.toggle('theme-dark', savedTheme === 'dark');
+themeToggle.addEventListener('click', () => {
+    const isDark = root.classList.toggle('theme-dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+});
+
+searchInput.addEventListener('input', (e) => { ui.query = e.target.value.trim(); renderAll(); });
+sortActive.addEventListener('change', (e) => { ui.scopeActiveSort = e.target.value; renderAll(); });
+sortCompleted.addEventListener('change', (e) => { ui.scopeDoneSort = e.target.value; renderAll(); });
+
+chips.forEach(ch => ch.addEventListener('click', () => {
+    chips.forEach(c => c.classList.remove('is-active'));
+    ch.classList.add('is-active');
+    ui.view = ch.dataset.view;
+    renderAll();
+}));
+
+btnAdd.addEventListener('click', async () => {
+    const title = (titleInput.value || '').trim();
+    const prio = prioSelect.value || 'low';
+    const due = dueInput.value || '';
+
+    if (!title) {
+        alert('Title is required');
+        return;
+    }
+    try {
+        await window.go.main.App.AddTask(title, due, prio);
+        titleInput.value = '';
+        dueInput.value = '';
+        prioSelect.value = 'low';
+        await renderAll();
+    } catch (e) {
+        alert(e);
+    }
+});
+
+async function onToggle(id) {
+    await window.go.main.App.ToggleTask(id);
+    await renderAll();
+}
+
+async function onDelete(id) {
+    if (!confirm('Delete this task?')) return;
+    await window.go.main.App.DeleteTask(id);
+    await renderAll();
+}
+
+async function onInlineEdit(task, li) {
+    const actions = li.querySelector('.actions');
+    if (actions) actions.style.display = 'none';
+
+    const row = document.createElement('div');
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '1fr 140px 210px 100px 100px';
+    row.style.gap = '8px';
+    row.style.marginTop = '8px';
+
+    const titleI = document.createElement('input');
+    titleI.className = 'input';
+    titleI.value = task.title;
+
+    const prioI = document.createElement('select');
+    prioI.className = 'input';
+    prioI.innerHTML = `
+    <option value="low">low</option>
+    <option value="medium">medium</option>
+    <option value="high">high</option>`;
+    prioI.value = (task.priority || 'low').toLowerCase();
+
+    const dueI = document.createElement('input');
+    dueI.className = 'input';
+    dueI.type = 'datetime-local';
+    try {
+        dueI.value = task.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : '';
+    } catch (_) { dueI.value = ''; }
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn';
+    saveBtn.textContent = 'Save';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn';
+    cancelBtn.textContent = 'Cancel';
+
+    row.appendChild(titleI);
+    row.appendChild(prioI);
+    row.appendChild(dueI);
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+    li.appendChild(row);
+
+    const cleanup = () => {
+        renderAll();
     };
 
-    const modal = document.getElementById('modal');
-    const confirmYes = document.getElementById('confirmYes');
-    const confirmNo = document.getElementById('confirmNo');
-    let confirmCb = null;
-    function openConfirm(onYes) { confirmCb = onYes; modal.classList.remove('hidden'); }
-    function closeConfirm() { modal.classList.add('hidden'); confirmCb = null; }
-    confirmYes.addEventListener('click', () => { if (confirmCb) confirmCb(); });
-    confirmNo.addEventListener('click', closeConfirm);
+    saveBtn.addEventListener('click', async () => {
+        await window.go.main.App.UpdateTask(task.id, titleI.value, prioI.value, dueI.value);
+        cleanup();
+    });
 
-    function setFilterChips(mode) {
-        ui.scopeView = mode;
-        [btnAll, btnAct, btnDone].forEach(b => b.classList.remove('is-active'));
-        if (mode === 'all') btnAll.classList.add('is-active');
-        if (mode === 'active') btnAct.classList.add('is-active');
-        if (mode === 'completed') btnDone.classList.add('is-active');
+    cancelBtn.addEventListener('click', cleanup);
+}
 
-        secAct.classList.toggle('hidden', mode === 'completed');
-        secDone.classList.toggle('hidden', mode === 'active');
+function badgeForPrio(p) {
+    const span = document.createElement('span');
+    span.className = 'badge ' + (p === 'high' ? 'badge--prio-high' :
+        p === 'medium' ? 'badge--prio-medium' : 'badge--prio-low');
+    span.textContent = p || 'low';
+    return span;
+}
+
+function badgeForDue(iso) {
+    if (!iso) return null;
+    try {
+        const dt = new Date(iso);
+        if (!isFinite(dt.getTime()) || dt.getFullYear() <= 1) return null;
+        const span = document.createElement('span');
+        span.className = 'badge badge--due';
+        span.textContent = dt.toLocaleString();
+        return span;
+    } catch (_) {
+        return null;
     }
+}
 
-    btnAll.addEventListener('click', () => setFilterChips('all'));
-    btnAct.addEventListener('click', () => setFilterChips('active'));
-    btnDone.addEventListener('click', () => setFilterChips('completed'));
+function itemView(task) {
+    const li = document.createElement('li');
+    li.className = 'item' + (task.done ? ' is-done' : '');
 
-    function renderItem(container, task, { allowToggle, showUndo }) {
-        const li = document.createElement('li');
-        li.className = 'item' + (task.done ? ' item--done' : '');
-
-        const left = document.createElement('div');
-        left.className = 'item__left';
-
-        const title = document.createElement('span');
-        title.className = 'item__title';
-        title.textContent = task.title;
-
-        const badgePrio = document.createElement('span');
-        badgePrio.className = 'badge badge--' + (task.priority || 'low');
-        badgePrio.textContent = task.priority || 'low';
-
-        const badgeDue = document.createElement('span');
-        badgeDue.className = 'chip';
-        badgeDue.textContent = task.dueAt ? new Date(task.dueAt).toLocaleDateString() : 'no date';
-
-        if (allowToggle) {
-            title.addEventListener('click', async () => {
-                try {
-                    await ToggleTask(task.id);
-                    await renderAll();
-                } catch (e) {
-                    console.error(e); alert('Toggle error: ' + (e.message || e));
-                }
-            });
+    try {
+        if (!task.done && task.dueAt && new Date(task.dueAt) < new Date()) {
+            li.classList.add('overdue');
         }
+    } catch (_) { }
 
-        left.appendChild(title);
-        left.appendChild(badgePrio);
-        left.appendChild(badgeDue);
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = task.title;
 
-        const actions = document.createElement('div');
-        actions.className = 'actions';
+    const badges = document.createElement('div');
+    badges.className = 'badges';
+    badges.appendChild(badgeForPrio((task.priority || 'low').toLowerCase()));
+    const dueBadge = badgeForDue(task.dueAt);
+    if (dueBadge) badges.appendChild(dueBadge);
 
-        if (showUndo) {
-            const undo = document.createElement('button');
-            undo.className = 'btn btn--ghost action undo';
-            undo.textContent = 'Undo';
-            undo.addEventListener('click', async () => {
-                try {
-                    await ToggleTask(task.id);
-                    await renderAll();
-                } catch (e) {
-                    console.error(e); alert('Undo error: ' + (e.message || e));
-                }
-            });
-            actions.appendChild(undo);
-        }
+    const actions = document.createElement('div');
+    actions.className = 'actions';
 
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn';
-        editBtn.textContent = 'Edit';
+    const btnToggle = document.createElement('button');
+    btnToggle.className = 'action';
+    btnToggle.textContent = task.done ? 'Undo' : 'Done';
+    btnToggle.addEventListener('click', () => onToggle(task.id));
 
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn btn--danger action del';
-        delBtn.textContent = 'Delete';
-        delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openConfirm(async () => {
-                try {
-                    await DeleteTask(task.id);
-                    closeConfirm();
-                    await renderAll();
-                } catch (err) {
-                    console.error(err); alert('Delete error: ' + (err.message || err));
-                }
-            });
-        });
+    const btnEdit = document.createElement('button');
+    btnEdit.className = 'action';
+    btnEdit.textContent = 'Edit';
+    btnEdit.addEventListener('click', () => onInlineEdit(task, li));
 
-        const titleInput = document.createElement('input');
-        titleInput.className = 'input';
-        titleInput.value = task.title;
+    const btnDelete = document.createElement('button');
+    btnDelete.className = 'action action--danger';
+    btnDelete.textContent = 'Delete';
+    btnDelete.addEventListener('click', () => onDelete(task.id));
 
-        const dueInputInline = document.createElement('input');
-        dueInputInline.type = 'date';
-        dueInputInline.className = 'input';
-        dueInputInline.value = task.dueAt ? new Date(task.dueAt).toISOString().slice(0, 10) : '';
+    actions.appendChild(btnToggle);
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnDelete);
 
-        const prioSelect = document.createElement('select');
-        prioSelect.className = 'input';
-        prioSelect.innerHTML = `
-      <option value="low">low</option>
-      <option value="medium">medium</option>
-      <option value="high">high</option>`;
-        prioSelect.value = task.priority || 'low';
+    li.appendChild(title);
+    li.appendChild(badges);
+    li.appendChild(actions);
+    return li;
+}
 
-        const saveBtn = document.createElement('button');
-        saveBtn.className = 'btn btn--primary';
-        saveBtn.textContent = 'Save';
+async function renderAll() {
+    secActive.style.display = (ui.view === 'all' || ui.view === 'active') ? '' : 'none';
+    secCompleted.style.display = (ui.view === 'all' || ui.view === 'completed') ? '' : 'none';
 
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'btn';
-        cancelBtn.textContent = 'Cancel';
-
-        let editing = false;
-        function setEditMode(on) {
-            editing = on;
-            left.innerHTML = '';
-            actions.innerHTML = '';
-            if (editing) {
-                left.appendChild(titleInput);
-                left.appendChild(prioSelect);
-                left.appendChild(dueInputInline);
-                actions.appendChild(saveBtn);
-                actions.appendChild(cancelBtn);
-            } else {
-                left.appendChild(title);
-                left.appendChild(badgePrio);
-                left.appendChild(badgeDue);
-                if (showUndo) {
-                    const undo = document.createElement('button');
-                    undo.className = 'btn btn--ghost action undo';
-                    undo.textContent = 'Undo';
-                    undo.addEventListener('click', async () => {
-                        try { await ToggleTask(task.id); await renderAll(); }
-                        catch (e) { console.error(e); alert('Undo error: ' + (e.message || e)); }
-                    });
-                    actions.appendChild(undo);
-                }
-                actions.appendChild(editBtn);
-                actions.appendChild(delBtn);
-            }
-        }
-        setEditMode(false);
-
-        editBtn.addEventListener('click', () => setEditMode(true));
-        cancelBtn.addEventListener('click', () => setEditMode(false));
-        saveBtn.addEventListener('click', async () => {
-            const newTitle = titleInput.value.trim();
-            const newPrio = prioSelect.value;
-            const newDue = dueInputInline.value;
-            if (!newTitle) return alert('Empty title');
-            try {
-                await UpdateTask(task.id, newTitle, newPrio, newDue);
-                await renderAll();
-            } catch (e) {
-                console.error(e); alert('Update error: ' + (e.message || e));
-            }
-        });
-
-        li.appendChild(left);
-        li.appendChild(actions);
-        container.appendChild(li);
-    }
-
-    async function renderAll() {
+    if (ui.view !== 'completed') {
+        const itemsA = await window.go.main.App.FilterTasks('active', ui.scopeActiveSort, 'all', ui.query);
         listActive.innerHTML = '';
+        itemsA.forEach(t => listActive.appendChild(itemView(t, 'active')));
+    }
+
+    if (ui.view !== 'active') {
+        const itemsD = await window.go.main.App.FilterTasks('done', ui.scopeDoneSort, 'all', ui.query);
         listCompleted.innerHTML = '';
-        try {
-            const act = await FilterTasks('active', ui.scopeActiveSort, ui.prioFilter, ui.query);
-            act.forEach(t => renderItem(listActive, t, { allowToggle: true, showUndo: false }));
-            const done = await FilterTasks('completed', ui.scopeDoneSort, ui.prioFilter, ui.query);
-            done.forEach(t => renderItem(listCompleted, t, { allowToggle: false, showUndo: true }));
-        } catch (e) {
-            console.error(e);
-            alert('Load error (FilterTasks): ' + (e.message || e));
-        }
+        itemsD.forEach(t => listCompleted.appendChild(itemView(t, 'done')));
     }
+}
 
-    async function handleAdd() {
-        const text = taskInput.value.trim();
-        if (!text) return alert('Введите текст!');
-        try {
-            await AddTask(text, dueInput.value, prioInput.value);
-            taskInput.value = ''; dueInput.value = ''; prioInput.value = 'low';
-            await renderAll();
-        } catch (e) {
-            console.error(e);
-            alert('Add error: ' + (e.message || e));
-        }
-    }
-
-    addBtn.addEventListener('click', handleAdd);
-    taskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAdd(); });
-
-    setFilterChips('all');
-    await renderAll();
-});
+renderAll();

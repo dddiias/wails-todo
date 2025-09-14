@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,9 +15,22 @@ type App struct {
 }
 
 func NewApp() *App {
-	return &App{
-		store: &Store{File: "tasks.json"},
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "."
 	}
+	return &App{
+		store: &Store{File: filepath.Join(wd, "tasks.json")},
+	}
+}
+
+func (a *App) FilterTasks(scope, sortBy, prio, q string) ([]Task, error) {
+	items, err := a.store.load()
+	if err != nil {
+		return nil, err
+	}
+	res := filterSortSearch(items, scope, sortBy, prio, q)
+	return res, nil
 }
 
 func (a *App) AddTask(title, dueISO, prio string) error {
@@ -21,17 +38,27 @@ func (a *App) AddTask(title, dueISO, prio string) error {
 	if err != nil {
 		return err
 	}
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf("title is required")
+	}
+
 	var due time.Time
-	if dueISO != "" {
-		if t, err := time.Parse("2006-01-02", dueISO); err == nil {
+	if strings.TrimSpace(dueISO) != "" {
+		if t, ok := parseDateFlex(dueISO); ok {
 			due = t
 		}
 	}
+
+	p := Priority(strings.ToLower(strings.TrimSpace(prio)))
+	if p != PrioLow && p != PrioMedium && p != PrioHigh {
+		p = PrioLow
+	}
+
 	items = addTask(items, Task{
 		ID:       uuid.NewString(),
 		Title:    title,
 		Done:     false,
-		Priority: Priority(prio),
+		Priority: p,
 		DueAt:    due,
 		Created:  time.Now(),
 	})
@@ -66,12 +93,4 @@ func (a *App) UpdateTask(id, title, prio, dueISO string) error {
 		return err
 	}
 	return a.store.save(items)
-}
-
-func (a *App) FilterTasks(scope, sortBy, prio, q string) ([]Task, error) {
-	items, err := a.store.load()
-	if err != nil {
-		return nil, err
-	}
-	return filterSortSearch(items, scope, sortBy, prio, q), nil
 }
