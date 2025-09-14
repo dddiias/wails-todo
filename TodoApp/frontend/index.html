@@ -18,7 +18,7 @@
 
         <div class="toolbar">
             <div class="toolbar__group">
-                <input id="searchInput" class="input input--search" placeholder="Search…" />
+                <input id="searchInput" class="input input--search" placeholder="Поиск…" />
             </div>
             <div class="toolbar__group">
                 <label class="label">Сортировка активных:</label>
@@ -49,7 +49,7 @@
     <main class="container">
         <section class="panel">
             <div class="input-box">
-                <input id="titleInput" class="input" placeholder="Task title…" />
+                <input id="titleInput" class="input" placeholder="Название задачи…" />
                 <select id="prioSelect" class="input">
                     <option value="low">низкий</option>
                     <option value="medium">средний</option>
@@ -63,6 +63,13 @@
                 <button class="chip is-active" data-view="all">Все</button>
                 <button class="chip" data-view="active">Активные</button>
                 <button class="chip" data-view="completed">Завершенные</button>
+            </div>
+            <div class="filters filters--date">
+                <span class="filters__label">Срок:</span>
+                <button class="chip is-active" data-date="all">Любой</button>
+                <button class="chip" data-date="today">Сегодня</button>
+                <button class="chip" data-date="week">На этой неделе</button>
+                <button class="chip" data-date="overdue">Просроченные</button>
             </div>
         </section>
 

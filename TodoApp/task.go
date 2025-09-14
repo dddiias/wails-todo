@@ -133,11 +133,15 @@ func parseDateFlex(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func filterSortSearch(items []Task, scope, sortBy, prio, q string) []Task {
+func filterSortSearch(items []Task, scope, sortBy, prio, q, dateScope string) []Task {
 	scope = strings.ToLower(strings.TrimSpace(scope))
 	sortBy = strings.ToLower(strings.TrimSpace(sortBy))
 	prio = strings.ToLower(strings.TrimSpace(prio))
 	q = strings.ToLower(strings.TrimSpace(q))
+	dateScope = strings.ToLower(strings.TrimSpace(dateScope))
+
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	res := make([]Task, 0, len(items))
 	for _, it := range items {
@@ -150,14 +154,26 @@ func filterSortSearch(items []Task, scope, sortBy, prio, q string) []Task {
 			if !it.Done {
 				continue
 			}
-		case "all", "":
-		default:
 		}
 
-		switch prio {
-		case "low", "medium", "high":
-			if strings.ToLower(string(it.Priority)) != prio {
-				continue
+		if prio != "" && prio != "all" && strings.ToLower(string(it.Priority)) != prio {
+			continue
+		}
+
+		if dateScope != "" && dateScope != "all" {
+			switch dateScope {
+			case "today":
+				if it.DueAt.IsZero() || it.DueAt.Before(start) || !it.DueAt.Before(start.Add(24*time.Hour)) {
+					continue
+				}
+			case "week":
+				if it.DueAt.IsZero() || it.DueAt.Before(start) || !it.DueAt.Before(start.AddDate(0, 0, 7)) {
+					continue
+				}
+			case "overdue":
+				if it.DueAt.IsZero() || !it.DueAt.Before(now) || it.Done {
+					continue
+				}
 			}
 		}
 
@@ -169,7 +185,7 @@ func filterSortSearch(items []Task, scope, sortBy, prio, q string) []Task {
 	}
 
 	sort.SliceStable(res, func(i, j int) bool {
-		switch sortBy {
+		switch strings.ToLower(sortBy) {
 		case "oldest":
 			return res[i].Created.Before(res[j].Created)
 		case "dueasc":
@@ -190,10 +206,10 @@ func filterSortSearch(items []Task, scope, sortBy, prio, q string) []Task {
 				return false
 			}
 			if zi {
-				return false
+				return true
 			}
 			if zj {
-				return true
+				return false
 			}
 			return res[i].DueAt.After(res[j].DueAt)
 		case "prio":
