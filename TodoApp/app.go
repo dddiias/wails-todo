@@ -39,7 +39,7 @@ func (a *App) AddTask(title, dueISO, prio string) error {
 		return err
 	}
 	if strings.TrimSpace(title) == "" {
-		return fmt.Errorf("title is required")
+		return fmt.Errorf("Треубется название задачи")
 	}
 
 	var due time.Time

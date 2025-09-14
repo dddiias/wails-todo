@@ -24,6 +24,47 @@ const ui = {
     dateScope: 'all',
 };
 
+const modalDelete = document.getElementById('modalDelete');
+const modalDeleteText = document.getElementById('modalDeleteText');
+const modalConfirm = document.getElementById('modalConfirm');
+const modalCancel = document.getElementById('modalCancel');
+
+let pendingDeleteId = null;
+
+function openDeleteModal(id, title) {
+    pendingDeleteId = id;
+    modalDeleteText.textContent = title
+        ? `Вы уверены, что хотите удалить «${title}»?`
+        : 'Вы уверены, что хотите удалить эту задачу?';
+    modalDelete.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    modalConfirm.focus();
+}
+
+function closeDeleteModal() {
+    modalDelete.classList.remove('is-open');
+    document.body.style.overflow = '';
+    pendingDeleteId = null;
+}
+
+modalDelete.addEventListener('click', (e) => {
+    if (e.target === modalDelete) closeDeleteModal();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalDelete.classList.contains('is-open')) {
+        closeDeleteModal();
+    }
+});
+
+modalCancel.addEventListener('click', () => closeDeleteModal());
+modalConfirm.addEventListener('click', async () => {
+    if (!pendingDeleteId) return closeDeleteModal();
+    await window.go.main.App.DeleteTask(pendingDeleteId);
+    closeDeleteModal();
+    await renderAll();
+});
+
+
 const root = document.documentElement;
 const savedTheme = localStorage.getItem('theme') || 'light';
 root.classList.toggle('theme-dark', savedTheme === 'dark');
@@ -56,7 +97,7 @@ btnAdd.addEventListener('click', async () => {
     const due = dueInput.value || '';
 
     if (!title) {
-        alert('Title is required');
+        alert('Название задачи не может быть пустым.');
         return;
     }
     try {
@@ -72,12 +113,6 @@ btnAdd.addEventListener('click', async () => {
 
 async function onToggle(id) {
     await window.go.main.App.ToggleTask(id);
-    await renderAll();
-}
-
-async function onDelete(id) {
-    if (!confirm('Delete this task?')) return;
-    await window.go.main.App.DeleteTask(id);
     await renderAll();
 }
 
@@ -195,7 +230,7 @@ function itemView(task) {
     const btnDelete = document.createElement('button');
     btnDelete.className = 'action action--danger';
     btnDelete.textContent = 'Delete';
-    btnDelete.addEventListener('click', () => onDelete(task.id));
+    btnDelete.addEventListener('click', () => openDeleteModal(task.id, task.title));
 
     actions.appendChild(btnToggle);
     actions.appendChild(btnEdit);

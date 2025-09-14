@@ -109,7 +109,7 @@ func updateTask(items []Task, id, title string, priority Priority, dueISO string
 			return items, nil
 		}
 	}
-	return items, errors.New("task not found")
+	return items, errors.New("Задача не найдена")
 }
 
 func parseDateFlex(s string) (time.Time, bool) {
