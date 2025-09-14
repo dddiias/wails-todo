@@ -31,11 +31,21 @@
 
             <p id="hint" class="hint">Click a task to toggle done. Use Undo in “Completed”.</p>
 
-            <h2 class="section-title">Active</h2>
-            <ul id="taskListActive" class="list"></ul>
+            <div class="filters">
+                <button id="fltAll" class="chip chip--filter is-active">All</button>
+                <button id="fltActive" class="chip chip--filter">Active</button>
+                <button id="fltCompleted" class="chip chip--filter">Completed</button>
+            </div>
 
-            <h2 class="section-title">Completed</h2>
-            <ul id="taskListCompleted" class="list list--completed"></ul>
+            <section class="task-section section-active">
+                <h2 class="section-title">Active</h2>
+                <ul id="taskListActive" class="list"></ul>
+            </section>
+
+            <section class="task-section section-completed">
+                <h2 class="section-title">Completed</h2>
+                <ul id="taskListCompleted" class="list list--completed"></ul>
+            </section>
         </section>
     </main>
 
