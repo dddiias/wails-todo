@@ -2,254 +2,197 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
-type TaskDTO struct {
-	ID        string  `json:"id"`
-	Title     string  `json:"title"`
-	Done      bool    `json:"done"`
-	Priority  string  `json:"priority"`
-	DueAt     *string `json:"dueAt,omitempty"`
-	CreatedAt string  `json:"createdAt"`
+type Priority string
+
+const (
+	PrioLow    Priority = "low"
+	PrioMedium Priority = "medium"
+	PrioHigh   Priority = "high"
+)
+
+type Task struct {
+	ID       string    `json:"id"`
+	Title    string    `json:"title"`
+	Done     bool      `json:"done"`
+	Priority Priority  `json:"priority"`
+	DueAt    time.Time `json:"dueAt"`
+	Created  time.Time `json:"created"`
 }
 
-type task struct {
-	ID        string
-	Title     string
-	Done      bool
-	Priority  string
-	DueAt     *time.Time
-	CreatedAt time.Time
+type Store struct {
+	File string
 }
 
-func toDTO(t task) TaskDTO {
-	var due *string
-	if t.DueAt != nil {
-		s := t.DueAt.Format("2006-01-02")
-		due = &s
+func parseDateFlex(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, false
 	}
-	return TaskDTO{
-		ID:        t.ID,
-		Title:     t.Title,
-		Done:      t.Done,
-		Priority:  t.Priority,
-		DueAt:     due,
-		CreatedAt: t.CreatedAt.Format(time.RFC3339),
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02",
+		"02.01.2006",
+		"02-01-2006",
 	}
-}
-
-func fromDTO(d TaskDTO) task {
-	var due *time.Time
-	if d.DueAt != nil && *d.DueAt != "" {
-		if tt, err := time.Parse("2006-01-02", *d.DueAt); err == nil {
-			due = &tt
-		} else if tt2, err2 := time.Parse(time.RFC3339, *d.DueAt); err2 == nil {
-			due = &tt2
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return t, true
 		}
 	}
-	created := time.Now()
-	if d.CreatedAt != "" {
-		if tt, err := time.Parse(time.RFC3339, d.CreatedAt); err == nil {
-			created = tt
-		}
-	}
-	pr := normalizePriority(d.Priority)
-
-	return task{
-		ID:        d.ID,
-		Title:     d.Title,
-		Done:      d.Done,
-		Priority:  pr,
-		DueAt:     due,
-		CreatedAt: created,
-	}
+	return time.Time{}, false
 }
 
-type TaskRepo struct {
-	mu    sync.Mutex
-	tasks []task
-	file  string
-}
-
-func NewTaskRepo(filename string) *TaskRepo {
-	r := &TaskRepo{file: filename}
-	r.load()
-	return r
-}
-
-func (r *TaskRepo) load() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	data, err := os.ReadFile(r.file)
+func (s *Store) load() ([]Task, error) {
+	b, err := os.ReadFile(s.File)
 	if err != nil {
-		if os.IsNotExist(err) {
-			r.tasks = []task{}
-			return
+		if errors.Is(err, os.ErrNotExist) {
+			return []Task{}, nil
 		}
-		panic(err)
+		return nil, err
+	}
+	if len(b) == 0 {
+		return []Task{}, nil
 	}
 
-	var dtos []TaskDTO
-	if err := json.Unmarshal(data, &dtos); err != nil {
-		r.tasks = []task{}
-		return
+	var items []Task
+	if err := json.Unmarshal(b, &items); err == nil {
+		return items, nil
 	}
-	r.tasks = make([]task, 0, len(dtos))
-	for _, d := range dtos {
-		r.tasks = append(r.tasks, fromDTO(d))
+
+	type legacyTask struct {
+		ID       string `json:"id"`
+		Title    string `json:"title"`
+		Done     bool   `json:"done"`
+		Priority string `json:"priority"`
+		DueAt    string `json:"dueAt"`
+		Created  string `json:"created"`
 	}
+	var old []legacyTask
+	if err := json.Unmarshal(b, &old); err != nil {
+		return nil, err
+	}
+	items = make([]Task, 0, len(old))
+	for _, o := range old {
+		var due time.Time
+		if t, ok := parseDateFlex(o.DueAt); ok {
+			due = t
+		}
+		created := time.Now()
+		if t, ok := parseDateFlex(o.Created); ok {
+			created = t
+		}
+		items = append(items, Task{
+			ID:       o.ID,
+			Title:    o.Title,
+			Done:     o.Done,
+			Priority: Priority(strings.ToLower(strings.TrimSpace(o.Priority))),
+			DueAt:    due,
+			Created:  created,
+		})
+	}
+	return items, nil
 }
 
-func (r *TaskRepo) save() {
-	dtos := make([]TaskDTO, 0, len(r.tasks))
-	for _, t := range r.tasks {
-		dtos = append(dtos, toDTO(t))
+func (s *Store) save(items []Task) error {
+	dir := filepath.Dir(s.File)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
 	}
-	data, _ := json.MarshalIndent(dtos, "", "  ")
-	_ = os.WriteFile(r.file, data, 0644)
+	b, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.File, b, 0o644)
 }
 
-func parseDate(iso string) *time.Time {
-	if iso == "" {
-		return nil
-	}
-	if len(iso) == 10 {
-		if t, err := time.Parse("2006-01-02", iso); err == nil {
-			return &t
+func addTask(items []Task, t Task) []Task {
+	return append(items, t)
+}
+
+func toggleTask(items []Task, id string) []Task {
+	for i := range items {
+		if items[i].ID == id {
+			items[i].Done = !items[i].Done
+			break
 		}
 	}
-	if t, err := time.Parse(time.RFC3339, iso); err == nil {
-		return &t
-	}
-	return nil
+	return items
 }
 
-func normalizePriority(s string) string {
-	switch strings.ToLower(s) {
-	case "high":
-		return "high"
-	case "medium":
-		return "medium"
-	default:
-		return "low"
-	}
-}
-
-var prioOrder = map[string]int{"high": 3, "medium": 2, "low": 1}
-
-func sameDay(a, b time.Time) bool {
-	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
-}
-
-func (r *TaskRepo) AddTask(title, dueAtISO, priority string) TaskDTO {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	t := task{
-		ID:        uuid.New().String(),
-		Title:     title,
-		Done:      false,
-		Priority:  normalizePriority(priority),
-		DueAt:     parseDate(dueAtISO),
-		CreatedAt: time.Now(),
-	}
-	r.tasks = append(r.tasks, t)
-	r.save()
-	return toDTO(t)
-}
-
-func (r *TaskRepo) FilterTasks(status, order, dateF string) []TaskDTO {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	now := time.Now()
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endOfWeek := startOfDay.AddDate(0, 0, 7)
-
-	selected := make([]task, 0, len(r.tasks))
-	for _, t := range r.tasks {
-		switch status {
-		case "active":
-			if t.Done {
-				continue
-			}
-		case "completed":
-			if !t.Done {
-				continue
-			}
+func deleteTask(items []Task, id string) []Task {
+	out := make([]Task, 0, len(items))
+	for _, t := range items {
+		if t.ID != id {
+			out = append(out, t)
 		}
-
-		switch dateF {
-		case "today":
-			if t.DueAt == nil || !sameDay(*t.DueAt, startOfDay) {
-				continue
-			}
-		case "week":
-			if t.DueAt == nil || t.DueAt.Before(startOfDay) || t.DueAt.After(endOfWeek) {
-				continue
-			}
-		case "overdue":
-			if t.DueAt == nil || !t.DueAt.Before(startOfDay) {
-				continue
-			}
-		}
-
-		selected = append(selected, t)
-	}
-
-	sort.Slice(selected, func(i, j int) bool {
-		switch order {
-		case "oldest":
-			return selected[i].CreatedAt.Before(selected[j].CreatedAt)
-		case "priority":
-			wi := prioOrder[selected[i].Priority]
-			wj := prioOrder[selected[j].Priority]
-			if wi == wj {
-				return selected[i].CreatedAt.After(selected[j].CreatedAt)
-			}
-			return wi > wj
-		default:
-			return selected[i].CreatedAt.After(selected[j].CreatedAt)
-		}
-	})
-
-	out := make([]TaskDTO, 0, len(selected))
-	for _, t := range selected {
-		out = append(out, toDTO(t))
 	}
 	return out
 }
 
-func (r *TaskRepo) ToggleTask(id string) (TaskDTO, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.tasks {
-		if r.tasks[i].ID == id {
-			r.tasks[i].Done = !r.tasks[i].Done
-			r.save()
-			return toDTO(r.tasks[i]), true
+func updateTask(items []Task, id, title string, priority Priority, dueISO string) ([]Task, error) {
+	var due time.Time
+	if strings.TrimSpace(dueISO) != "" {
+		dt, err := time.Parse("2006-01-02", dueISO)
+		if err != nil {
+			return nil, err
+		}
+		due = dt
+	}
+	for i := range items {
+		if items[i].ID == id {
+			if title != "" {
+				items[i].Title = title
+			}
+			if priority != "" {
+				items[i].Priority = priority
+			}
+			items[i].DueAt = due
+			return items, nil
 		}
 	}
-	return TaskDTO{}, false
+	return nil, errors.New("task not found")
 }
 
-func (r *TaskRepo) DeleteTask(id string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.tasks {
-		if r.tasks[i].ID == id {
-			r.tasks = append(r.tasks[:i], r.tasks[i+1:]...)
-			r.save()
-			return true
+func filterSortSearch(items []Task, scope string, sortBy string, prio string, q string) []Task {
+	res := make([]Task, 0, len(items))
+	for _, t := range items {
+		if scope == "active" && t.Done {
+			continue
 		}
+		if scope == "completed" && !t.Done {
+			continue
+		}
+		if prio != "" && prio != "all" && string(t.Priority) != prio {
+			continue
+		}
+		if q != "" && !strings.Contains(strings.ToLower(t.Title), strings.ToLower(q)) {
+			continue
+		}
+		res = append(res, t)
 	}
-	return false
+
+	sort.Slice(res, func(i, j int) bool {
+		switch sortBy {
+		case "oldest":
+			return res[i].Created.Before(res[j].Created)
+		case "dueAsc":
+			return res[i].DueAt.Before(res[j].DueAt)
+		case "dueDesc":
+			return res[i].DueAt.After(res[j].DueAt)
+		case "prio":
+			ord := map[Priority]int{PrioHigh: 0, PrioMedium: 1, PrioLow: 2}
+			return ord[res[i].Priority] < ord[res[j].Priority]
+		default:
+			return res[i].Created.After(res[j].Created)
+		}
+	})
+	return res
 }
