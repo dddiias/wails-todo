@@ -1,65 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ToDo</title>
     <link rel="stylesheet" href="./src/style.css" />
-    <title>TodoApp</title>
 </head>
 
 <body>
-    <main class="page">
-        <section class="card app-card">
-            <header class="card__header">
-                <h1 class="title">ToDo List</h1>
-                <span class="title__icon">🗓️</span>
-            </header>
+    <header class="header">
+        <div class="title-wrap">
+            <h1 class="title">ToDo список</h1>
+            <span class="title__icon">🗓️</span>
+        </div>
 
-            <div class="addform">
-                <input type="text" id="taskInput" class="input" placeholder="Add your task" />
-                <input type="date" id="dueInput" class="input input--date" />
-                <select id="priorityInput" class="input input--select">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                </select>
-                <button id="addBtn" type="button" class="btn btn--primary">
-                    <span class="btn__icon">＋</span>
-                </button>
+        <div class="toolbar">
+            <div class="toolbar__group">
+                <input id="searchInput" class="input input--search" placeholder="Search…" />
             </div>
+            <div class="toolbar__group">
+                <label class="label">Сортировка активных:</label>
+                <select id="sortActive" class="input input--select">
+                    <option value="newest">Новейшие</option>
+                    <option value="oldest">Старейшие</option>
+                    <option value="dueAsc">Срок ↑</option>
+                    <option value="dueDesc">Срок ↓</option>
+                    <option value="prio">Приоритет</option>
+                </select>
+            </div>
+            <div class="toolbar__group">
+                <label class="label">Сортировка завершенных:</label>
+                <select id="sortCompleted" class="input input--select">
+                    <option value="newest">Новейшие</option>
+                    <option value="oldest">Старейшие</option>
+                    <option value="dueAsc">Срок ↑</option>
+                    <option value="dueDesc">Срок ↓</option>
+                    <option value="prio">Приоритет</option>
+                </select>
+            </div>
+            <div class="toolbar__group">
+                <button id="themeToggle" type="button" class="btn">Тема</button>
+            </div>
+        </div>
+    </header>
 
-            <p id="hint" class="hint">Click a task to toggle done. Use Undo in “Completed”.</p>
+    <main class="container">
+        <section class="panel">
+            <div class="input-box">
+                <input id="titleInput" class="input" placeholder="Task title…" />
+                <select id="prioSelect" class="input">
+                    <option value="low">низкий</option>
+                    <option value="medium">средний</option>
+                    <option value="high">высокий</option>
+                </select>
+                <input id="dueInput" class="input" type="datetime-local" />
+                <button id="btnAdd" class="btn">Добавить</button>
+            </div>
 
             <div class="filters">
-                <button id="fltAll" class="chip chip--filter is-active">All</button>
-                <button id="fltActive" class="chip chip--filter">Active</button>
-                <button id="fltCompleted" class="chip chip--filter">Completed</button>
+                <button class="chip is-active" data-view="all">Все</button>
+                <button class="chip" data-view="active">Активные</button>
+                <button class="chip" data-view="completed">Завершенные</button>
             </div>
+        </section>
 
-            <section class="task-section section-active">
-                <h2 class="section-title">Active</h2>
-                <ul id="taskListActive" class="list"></ul>
-            </section>
+        <section class="section section-active">
+            <h2>Активные</h2>
+            <ul id="listActive" class="list"></ul>
+        </section>
 
-            <section class="task-section section-completed">
-                <h2 class="section-title">Completed</h2>
-                <ul id="taskListCompleted" class="list list--completed"></ul>
-            </section>
+        <section class="section section-completed">
+            <h2>Завершенные</h2>
+            <ul id="listCompleted" class="list"></ul>
         </section>
     </main>
 
-    <div id="modal" class="modal hidden">
-        <div class="modal__card">
-            <p class="modal__text">Удалить задачу?</p>
-            <div class="modal__actions">
-                <button id="confirmYes" type="button" class="btn btn--danger">Удалить</button>
-                <button id="confirmNo" type="button" class="btn">Отмена</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="./src/main.js"></script>
+    <script src="./src/main.js"></script>
 </body>
 
 </html>
