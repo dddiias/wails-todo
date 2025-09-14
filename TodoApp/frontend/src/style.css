@@ -270,3 +270,43 @@ li.overdue .title {
     color: var(--ink-muted);
     margin-right: 8px;
 }
+
+.modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .4);
+    z-index: 1000;
+}
+
+.modal.is-open {
+    display: flex;
+}
+
+.modal__content {
+    width: min(480px, calc(100% - 32px));
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+}
+
+.modal__title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.modal__text {
+    margin: 0 0 14px 0;
+    color: var(--ink-muted);
+}
+
+.modal__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}

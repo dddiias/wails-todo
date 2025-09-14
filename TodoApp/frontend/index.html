@@ -83,7 +83,16 @@
             <ul id="listCompleted" class="list"></ul>
         </section>
     </main>
-
+    <div id="modalDelete" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal__content">
+            <h3 class="modal__title">Удалить задачу?</h3>
+            <p id="modalDeleteText" class="modal__text">Вы уверены, что хотите удалить эту задачу?</p>
+            <div class="modal__actions">
+                <button id="modalCancel" class="action">Отмена</button>
+                <button id="modalConfirm" class="action action--danger">Удалить</button>
+            </div>
+        </div>
+    </div>
     <script src="./src/main.js"></script>
 </body>
 
